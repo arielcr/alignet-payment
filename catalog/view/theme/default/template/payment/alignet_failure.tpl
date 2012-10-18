@@ -8,6 +8,9 @@
   <h1><?php echo $heading_title_failure; ?></h1>
   <?php echo $text_message_failure; ?>
   <ul><li><strong><?php echo $error_alignet; ?></strong></li></ul>
+  
+  <br>
+      <?php echo isset($text_message_continue) ? $text_message_continue : ""; ?>
   <div class="buttons">
     <div class="right"><a href="<?php echo $continue; ?>" class="button"><?php echo $button_continue; ?></a></div>
   </div>

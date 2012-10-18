@@ -68,42 +68,49 @@ class ControllerPaymentAlignet extends Controller {
     }
 
     public function response() {
+        $this->session->data['POST'] = $_POST;
+        $this->session->data['alignet_vpos_pub_signature_key'] = $this->config->get('alignet_vpos_pub_signature_key');
+        $this->session->data['alignet_com_prv_crypto_key'] = $this->config->get('alignet_com_prv_crypto_key');
+        $this->session->data['alignet_vinit'] = $this->config->get('alignet_vinit');       
+        $this->session->data['payment_alignet_process'] = $this->url->link('payment/alignet/process', '', 'SSL');
+        $this->redirect(HTTPS_SERVER."vpos/response.php");   
+    }
+    
+    public function process() {
 
-        include $_SERVER['DOCUMENT_ROOT'] . $this->config->get('alignet_plugin');
-
-        $this->load->language('payment/alignet');
-
-        $llave_pub_signature_vpos = file_get_contents($_SERVER['DOCUMENT_ROOT'] . $this->config->get('alignet_vpos_pub_signature_key'));
-        $llave_priv_cifrado_lyg = file_get_contents($_SERVER['DOCUMENT_ROOT'] . $this->config->get('alignet_com_prv_crypto_key'));
-
-        $arrayIn = array();
-        $arrayIn['IDACQUIRER'] = $_POST['IDACQUIRER'];
-        $arrayIn['IDCOMMERCE'] = $_POST['IDCOMMERCE'];
-        $arrayIn['XMLRES'] = $_POST['XMLRES'];
-        $arrayIn['DIGITALSIGN'] = $_POST['DIGITALSIGN'];
-        $arrayIn['SESSIONKEY'] = $_POST['SESSIONKEY'];
-
-        $arrayOut = array();
-
-        if (VPOSResponse($arrayIn, $arrayOut, $llave_pub_signature_vpos, $llave_priv_cifrado_lyg, $this->config->get('alignet_vinit'))) {
-
+       if ($this->session->data['VPOSResponse']) {
             if ($this->config->get('alignet_mode') == "1") {
-                $this->session->data['result_pruebas'] = "<pre>".print_r($arrayOut, true)."</pre>";
-                $this->pruebas();
+                $this->session->data['result_pruebas'] = "<pre>".print_r($this->session->data['arrayOut'], true)."</pre>";
+                $this->unset_vars();
+                $this->redirect($this->url->link('payment/alignet/pruebas', '', 'SSL'));
             } else {
-                if ($arrayOut['errorCode'] == "00") {
+                if ($this->session->data['arrayOut']['errorCode'] == "00") {
                     $this->load->model('checkout/order');
                     $this->model_checkout_order->confirm($this->session->data['order_id'], $this->config->get('alignet_order_status_id'));
+                    $this->unset_vars();
                     $this->redirect($this->url->link('checkout/success', '', 'SSL'));
                 } else {
-                    $this->session->data['error_alignet'] = $arrayOut['errorMessage'];
+                    $this->session->data['error_alignet'] = $this->session->data['arrayOut']['errorMessage'];
+                    $this->unset_vars();
                     $this->redirect($this->url->link('payment/alignet/failure', '', 'SSL'));
                 }
             }
         } else {
             $this->session->data['error_alignet'] = $this->language->get('text_error_alignet');
+            $this->unset_vars();
             $this->redirect($this->url->link('payment/alignet/failure', '', 'SSL'));
         }
+        
+    }
+    
+    private function unset_vars(){
+        unset($this->session->data['POST']);
+        unset($this->session->data['alignet_vpos_pub_signature_key']);
+        unset($this->session->data['alignet_com_prv_crypto_key']);
+        unset($this->session->data['alignet_vinit']);
+        unset($this->session->data['payment_alignet_process']);
+        unset($this->session->data['arrayOut']);
+        unset($this->session->data['VPOSResponse']);
     }
 
     public function failure() {
@@ -121,13 +128,13 @@ class ControllerPaymentAlignet extends Controller {
         );
 
         $this->data['breadcrumbs'][] = array(
-            'href' => $this->url->link('checkout/cart'),
+            'href' => $this->url->link('checkout/cart&id_lista='.$this->session->data['id_lista']),
             'text' => $this->language->get('text_basket'),
             'separator' => $this->language->get('text_separator')
         );
 
         $this->data['breadcrumbs'][] = array(
-            'href' => $this->url->link('checkout/checkout', '', 'SSL'),
+            'href' => $this->url->link('checkout/checkout&id_lista='.$this->session->data['id_lista'], '', 'SSL'),
             'text' => $this->language->get('text_checkout'),
             'separator' => $this->language->get('text_separator')
         );
@@ -140,9 +147,10 @@ class ControllerPaymentAlignet extends Controller {
 
         $this->data['heading_title_failure'] = $this->language->get('heading_title_failure');
         $this->data['text_message_failure'] = $this->language->get('text_message_failure');
+        $this->data['text_message_continue'] = $this->language->get('text_message_continue');
 
         $this->data['button_continue'] = $this->language->get('button_continue');
-        $this->data['continue'] = $this->url->link('checkout/cart');
+        $this->data['continue'] = $this->url->link('checkout/checkout&id_lista='.$this->session->data['id_lista']);
 
         $this->data['error_alignet'] = $this->session->data['error_alignet'];
 
@@ -179,13 +187,13 @@ class ControllerPaymentAlignet extends Controller {
         );
 
         $this->data['breadcrumbs'][] = array(
-            'href' => $this->url->link('checkout/cart'),
+            'href' => $this->url->link('checkout/cart&id_lista='.$this->session->data['id_lista']),
             'text' => $this->language->get('text_basket'),
             'separator' => $this->language->get('text_separator')
         );
 
         $this->data['breadcrumbs'][] = array(
-            'href' => $this->url->link('checkout/checkout', '', 'SSL'),
+            'href' => $this->url->link('checkout/checkout&id_lista='.$this->session->data['id_lista'], '', 'SSL'),
             'text' => $this->language->get('text_checkout'),
             'separator' => $this->language->get('text_separator')
         );
@@ -200,7 +208,7 @@ class ControllerPaymentAlignet extends Controller {
         $this->data['text_message_failure'] = "";
 
         $this->data['button_continue'] = $this->language->get('button_continue');
-        $this->data['continue'] = $this->url->link('checkout/cart');
+        $this->data['continue'] = $this->url->link('checkout/checkout&id_lista='.$this->session->data['id_lista']);
 
         $this->data['error_alignet'] = $this->session->data['result_pruebas'];
 
